@@ -1,0 +1,17 @@
+# 应用基础配置
+app:
+  name: sre-copilot
+  env: development
+  host: 0.0.0.0
+  port: 8000
+
+# Milvus 连接与集合配置
+milvus:
+  host: localhost
+  port: 19530
+  user: root
+  password: ""        # 如生产有密码，请在部署侧注入或挂载覆盖
+  database: sre_copilot
+  collections:
+    incidents: incidents_cases   # 历史故障案例 collection 名称
+    topology: service_topology   # 服务拓扑 collection 名称
