@@ -1,0 +1,93 @@
+[
+  {
+    "service_id": "svc-dolphinscheduler-batch",
+    "service_name": "DolphinScheduler 批处理调度",
+    "service_type": "scheduler",
+    "upstream_services": [],
+    "downstream_services": [
+      "svc-datax-order-sync"
+    ],
+    "tags": [
+      "调度",
+      "离线任务"
+    ],
+    "updated_at": "2024-03-12T01:00:00Z"
+  },
+  {
+    "service_id": "svc-datax-order-sync",
+    "service_name": "DataX 订单同步任务",
+    "service_type": "data_pipeline",
+    "upstream_services": [
+      "svc-dolphinscheduler-batch",
+      "svc-mysql-orders",
+      "svc-sqlserver-pos"
+    ],
+    "downstream_services": [
+      "svc-doris-realtime"
+    ],
+    "tags": [
+      "DataX",
+      "ETL",
+      "批处理"
+    ],
+    "updated_at": "2024-03-12T01:05:00Z"
+  },
+  {
+    "service_id": "svc-mysql-orders",
+    "service_name": "MySQL 订单库",
+    "service_type": "database",
+    "upstream_services": [],
+    "downstream_services": [
+      "svc-datax-order-sync"
+    ],
+    "tags": [
+      "MySQL",
+      "交易数据"
+    ],
+    "updated_at": "2024-03-11T22:10:00Z"
+  },
+  {
+    "service_id": "svc-sqlserver-pos",
+    "service_name": "SQLServer 门店 POS 库",
+    "service_type": "database",
+    "upstream_services": [],
+    "downstream_services": [
+      "svc-datax-order-sync"
+    ],
+    "tags": [
+      "SQLServer",
+      "POS"
+    ],
+    "updated_at": "2024-03-11T22:15:00Z"
+  },
+  {
+    "service_id": "svc-doris-realtime",
+    "service_name": "Doris 实时分析集群",
+    "service_type": "database",
+    "upstream_services": [
+      "svc-datax-order-sync"
+    ],
+    "downstream_services": [
+      "svc-magic-api-gateway"
+    ],
+    "tags": [
+      "Doris",
+      "实时分析"
+    ],
+    "updated_at": "2024-03-12T01:20:00Z"
+  },
+  {
+    "service_id": "svc-magic-api-gateway",
+    "service_name": "Magic API 数据服务接口",
+    "service_type": "api",
+    "upstream_services": [
+      "svc-doris-realtime"
+    ],
+    "downstream_services": [],
+    "tags": [
+      "MagicAPI",
+      "数据服务"
+    ],
+    "updated_at": "2024-03-12T01:25:00Z"
+  }
+]

@@ -1,0 +1,177 @@
+[
+  {
+    "case_id": "INC-2024-DATA-001",
+    "title": "DataX 同步任务配置错误导致数据重复写入",
+    "description": "凌晨执行的 DataX 同步任务出现数据重复写入，ODS 层表 `ods_order_fact` 的当天增量数据翻倍。调度日志显示 DataX 任务重试三次且每次都重新从源库读取全量数据。下游 Doris 实时报表出现重复订单，GMV 统计异常翻倍。",
+    "alert_source": "DolphinScheduler",
+    "severity": "P1",
+    "solution": "立即停止对应的 DataX 任务并锁表，防止新的重复数据进入。使用数据快照回滚重复区间（00:00-02:00）的增量记录，重新执行校验 SQL，确认数据总量恢复正常。修复 DataX 任务 JSON 配置，将 `writeMode` 从 `insert` 改为 `upsert`，并在调度层启用幂等处理逻辑。",
+    "root_cause": "DataX 任务配置疏忽，将失败重试策略设置为重新执行全量 Insert，缺乏 checkpoint 与幂等控制，导致每次重试都会把同一批数据写入。上线前未覆盖该场景的回归测试。",
+    "prevention_measures": [
+      "为 DataX 任务增加幂等写入控制和 checkpoint 机制。",
+      "上线前增加回归测试用例，覆盖失败重试场景。",
+      "对关键数据层设置重复率监控和阈值告警。"
+    ],
+    "tags": [
+      "DataX",
+      "数据同步",
+      "重复数据",
+      "调度"
+    ],
+    "occurred_at": "2024-02-18T01:10:00Z",
+    "resolved_at": "2024-02-18T02:05:00Z",
+    "duration_minutes": 55,
+    "reporter": "大数据平台组-王强",
+    "status": "resolved"
+  },
+  {
+    "case_id": "INC-2024-DORIS-001",
+    "title": "Doris 集群 Tablet 不均衡导致查询延迟激增",
+    "description": "实时分析查询出现大量慢 SQL，平均响应时间从 300ms 上升到 5s。Doris FE 日志提示部分 BE 节点磁盘利用率 90%，另一些不足 50%。Tablet 迁移长时间排队，Compaction backlog 超过 50 万。",
+    "alert_source": "Grafana",
+    "severity": "P1",
+    "solution": "立即对热点 BE 节点启用 Tablet 迁移，将 `balance` 策略阈值从默认 10% 下调为 5%，并手动触发热点分片的迁移。临时扩容 2 台 BE 节点，提供额外磁盘与计算资源。调整 Compaction 并发度，在低峰时段批量处理 backlog，恢复延迟至 500ms 以内。",
+    "root_cause": "近期广告投放策略调整，导致部分维度实时写入倾斜，历史未进行 Tablet 均衡，热点集中在少数 BE 节点上，同时 Compaction 任务积压未及时处理。",
+    "prevention_measures": [
+      "启用 Doris Tablet 自动均衡策略，设置合理的监控阈值。",
+      "建立 Compaction backlog 告警，及时处理积压任务。",
+      "针对热点写入场景优化分区与分桶策略，避免写入倾斜。"
+    ],
+    "tags": [
+      "Doris",
+      "Tablet均衡",
+      "Compaction",
+      "实时分析"
+    ],
+    "occurred_at": "2024-03-02T09:20:00Z",
+    "resolved_at": "2024-03-02T11:00:00Z",
+    "duration_minutes": 100,
+    "reporter": "数据仓库团队-李娜",
+    "status": "resolved"
+  },
+  {
+    "case_id": "INC-2024-HDFS-001",
+    "title": "Hadoop NameNode 堆内存飙升触发安全模式",
+    "description": "凌晨 HDFS 集群发生 NameNode GC 频繁、堆内存占用 95% 以上的情况，最终触发安全模式，导致上游写入失败、下游读取超时。NameNode 日志显示存在大量小文件创建，Checkpoint 超时未完成。",
+    "alert_source": "Zabbix",
+    "severity": "P0",
+    "solution": "立即重启 Standby NameNode 并提升堆内存上限，从 64GB 调整到 96GB。执行小文件合并脚本，将近 500 万个小文件合并为顺序文件。临时限制通过 Flume 接入的小文件写入速率，待 NameNode 恢复后再逐步放开。",
+    "root_cause": "上游 Flume 新增的日志接入未按规范合并小文件，导致短时间内生成大量小文件，NameNode 元数据压力骤增，堆内存耗尽。",
+    "prevention_measures": [
+      "为 Flume 引入小文件合并插件，限制写入最小文件大小。",
+      "定期执行小文件巡检与合并任务。",
+      "优化 NameNode 监控，内存水位超过 80% 时自动通知。"
+    ],
+    "tags": [
+      "Hadoop",
+      "NameNode",
+      "小文件",
+      "GC"
+    ],
+    "occurred_at": "2024-03-10T02:05:00Z",
+    "resolved_at": "2024-03-10T04:30:00Z",
+    "duration_minutes": 145,
+    "reporter": "平台运维-赵云",
+    "status": "resolved"
+  },
+  {
+    "case_id": "INC-2024-DSCH-001",
+    "title": "DolphinScheduler 队列阻塞导致批处理任务大面积超时",
+    "description": "DolphinScheduler 批处理调度队列出现大量待运行任务，优先级高的订单清洗作业排队 40 分钟仍未启动。调度日志显示 master 节点 slot 已耗尽，worker 节点存在故障未摘除，调度器持续重试同一 worker。",
+    "alert_source": "DolphinScheduler",
+    "severity": "P1",
+    "solution": "立即将故障 worker 节点下线并重启 master 服务，释放占用的 slot。临时提升订单清洗作业内存与 CPU 配额，确保优先运行。对队列中低优先级任务进行暂停或延后，等待核心批处理恢复后再逐步放开。",
+    "root_cause": "调度集群的 worker 节点发生网络闪断后未被及时剔除，导致 master 不断尝试分配任务失败，造成队列积压。加之 slot 配额紧张，无法快速调度高优先级任务。",
+    "prevention_measures": [
+      "启用 worker 健康检查与自动摘除功能，降低故障节点影响。",
+      "为核心批处理队列预留专属资源配额。",
+      "建立调度队列长度与等待时间告警阈值。"
+    ],
+    "tags": [
+      "DolphinScheduler",
+      "调度",
+      "批处理",
+      "slot"
+    ],
+    "occurred_at": "2024-03-15T00:40:00Z",
+    "resolved_at": "2024-03-15T01:25:00Z",
+    "duration_minutes": 45,
+    "reporter": "调度运维-刘畅",
+    "status": "resolved"
+  },
+  {
+    "case_id": "INC-2024-MYSQL-001",
+    "title": "MySQL 订单库主从延迟导致订单确认滞后",
+    "description": "订单确认接口反馈延迟，监控显示 `svc-mysql-orders` 主从同步延迟超过 600 秒，导致下游 DataX 任务读取到旧数据。Replica 日志显示存在长事务占用 binlog，IO 线程被阻塞。",
+    "alert_source": "Zabbix",
+    "severity": "P1",
+    "solution": "立即终止超长事务并备份相关 SQL 供业务回溯。重启受影响的从库 IO 线程，确认延迟逐步下降。临时将订单确认接口切换到主库读取，并通知 DataX 任务延后运行直到延迟恢复正常。",
+    "root_cause": "批量订单更新任务在业务侧长时间未提交，导致 binlog 长时间占用；从库 replay 速度慢引起延迟积压。",
+    "prevention_measures": [
+      "对写入订单库的批量操作增加事务超时控制。",
+      "部署主从延迟自动告警与限流策略。",
+      "优化从库硬件配置，提高 relay log 应用速度。"
+    ],
+    "tags": [
+      "MySQL",
+      "主从延迟",
+      "订单系统",
+      "数据库"
+    ],
+    "occurred_at": "2024-03-14T21:10:00Z",
+    "resolved_at": "2024-03-14T21:45:00Z",
+    "duration_minutes": 35,
+    "reporter": "数据库平台-陈杰",
+    "status": "resolved"
+  },
+  {
+    "case_id": "INC-2024-SQLSERVER-001",
+    "title": "SQLServer 门店 POS 库连接数耗尽导致收银异常",
+    "description": "全国门店 POS 系统陆续出现下单失败，监控显示 `svc-sqlserver-pos` 活跃连接达到 500 的上限。SQLServer 错误日志提示连接池耗尽，下游 DataX 抽取任务也因超时频繁重试。",
+    "alert_source": "Prometheus",
+    "severity": "P0",
+    "solution": "立即将 POS 应用连接池参数调整为按需创建，并启用连接闲置回收。对异常查询进行 Kill，快速释放连接。通知门店分批次重试下单，同时暂停 DataX 对 POS 库的同步任务，待连接恢复后按顺序恢复作业。",
+    "root_cause": "新版本 POS 应用上线后连接未能及时释放，导致连接数持续累积；同时 DataX 抽取任务重试策略不合理，加剧了连接压力。",
+    "prevention_measures": [
+      "优化 POS 应用连接池配置，引入连接泄漏检测。",
+      "为 SQLServer 设置连接数告警与自动降级策略。",
+      "调整 DataX 抽取任务的失败重试间隔与超时设置。"
+    ],
+    "tags": [
+      "SQLServer",
+      "POS",
+      "连接池",
+      "数据同步"
+    ],
+    "occurred_at": "2024-03-16T10:05:00Z",
+    "resolved_at": "2024-03-16T10:40:00Z",
+    "duration_minutes": 35,
+    "reporter": "门店系统运维-黄磊",
+    "status": "resolved"
+  },
+  {
+    "case_id": "INC-2024-MAGICAPI-001",
+    "title": "Magic API 数据服务接口出现大量 502 错误",
+    "description": "业务侧反馈调用 Magic API 数据服务接口报错率上升，监控显示 `svc-magic-api-gateway` 在 10 分钟内 502 错误率达到 15%。日志显示上游 `svc-doris-realtime` 查询超时，Gateway 重试引发级联超时。",
+    "alert_source": "Grafana",
+    "severity": "P1",
+    "solution": "先将 Gateway 超时阈值从 3 秒调整至 5 秒，并启用熔断策略，快速返回降级数据。同步扩容 Magic API 实例，缓解重试产生的并发压力。通知数据仓库团队对 Doris 热点查询进行优化并临时加大分片并发度。",
+    "root_cause": "Doris 集群在高峰期查询延迟升高，Magic API 未设置合理的超时与熔断策略，导致 Gateway 重试放大问题并引发线程池耗尽。",
+    "prevention_measures": [
+      "为 Magic API 接口配置熔断与降级策略，避免重试风暴。",
+      "与数据仓库团队联合制定高峰期查询白名单和限流方案。",
+      "建立跨服务的端到端延迟监控和告警。"
+    ],
+    "tags": [
+      "MagicAPI",
+      "Gateway",
+      "502",
+      "降级"
+    ],
+    "occurred_at": "2024-03-17T18:20:00Z",
+    "resolved_at": "2024-03-17T18:50:00Z",
+    "duration_minutes": 30,
+    "reporter": "数据服务运维-周婷",
+    "status": "resolved"
+  }
+]
