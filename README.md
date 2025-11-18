@@ -30,7 +30,27 @@ SRE Copilot是一个基于Langchain框架构建的AI智能助手，专门为公�
 - Qwen3: 大语言模型引擎
 
 ### 数据存储
-- Milvus: 存储历史故障案例和应用拓扑架构，用于相似度检索和理解服务依赖关系
+- Milvus: 存储历史故障案例，用于相似度检索
+  - 历史故障案例库结构, `incidents_cases`:
+    - **case_id** (VARCHAR, primary key): 案例唯一标识，如"INC-2024-DATA-001"
+    - **title** (VARCHAR): 案例标题，简洁概括故障现象
+    - **description** (VARCHAR): 详细的故障描述，包括现象、影响范围等
+    - **solution_summary** (VARCHAR): 解决方案摘要，用于向量化表示和快速浏览
+    - **severity_level** (INT): 严重等级，P0=0, P1=1，便于排序和过滤
+    - **tags** (JSON): 标签数组，用于分类和快速筛选，如：["MySQL", "主从延迟", "数据库"]
+    - **problem_vector** (FLOAT_VECTOR): 核心匹配向量，由title+description组合生成，用于与新告警进行相似度匹配
+    - **occurred_timestamp** (INT64): 故障发生时间戳，便于时间范围查询和排序
+- Neo4j: 存储应用拓扑架构，用于依赖关系分析和影响链分析
+  - 应用拓扑架构库结构：
+    - **服务节点 (Service Node)**:
+      - **service_id** (STRING, primary key): 服务唯一标识，如"svc-dolphinscheduler-batch"
+      - **service_name** (STRING): 服务名称，如"DolphinScheduler 批处理调度"
+      - **service_type** (STRING): 服务类型，如"scheduler"、"database"、"api"
+      - **tags** (LIST OF STRING): 标签数组，如["调度", "离线任务"]
+      - **updated_at** (DATETIME): 更新时间
+    - **依赖关系 (DEPENDS_ON Relationship)**:
+      - **from** (Service Node): 依赖方服务
+      - **to** (Service Node): 被依赖方服务
 
 ### 接口服务
 - FastAPI: RESTful API服务
